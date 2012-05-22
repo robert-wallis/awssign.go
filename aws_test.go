@@ -5,34 +5,36 @@ import (
 )
 
 func TestAwsSign(t *testing.T) {
-	//  http://sns.us-east-1.amazonaws.com/
-	//  ?Subject=My%20first%20message
-	//  &TopicArn=arn%3Aaws%3Asns%3Aus-east-1%3A698519295917%3AMy-Topic
-	//  &Message=Hello%20world%21
-	//  &Action=Publish
-	//  &SignatureVersion=2
-	//  &SignatureMethod=HmacSHA256
-	//  &Timestamp=2010-03-31T12%3A00%3A00.000Z
-	//  &AWSAccessKeyId=AKIAIOSFODNN7EXAMPLE
-	//  &Signature=9GZysQ4Jpnz%2BHklqM7VFTvEcjR2LIUtn6jW47054xxE%3D
-	creds := AwsCredentials{"AKIAIOSFODNN7EXAMPLE", "EXAMPLE+SECRET"}
+	// secret: EXAMPLE+AWS+SECRET
+	// http://sns.us-east-1.amazonaws.com/?
+	// 		AWSAccessKeyId=EXAMPLE%2BAWS%2BKEY&
+	//		Action=Publish&
+	//		ContentType=JSON&
+	//		Message=Hi%20Test&
+	//		SignatureMethod=HmacSHA256&
+	//		SignatureVersion=2&
+	//		Timestamp=2012-05-21T21%3A16%3A38Z&
+	//		TopicArn=arn%3Aaws%3Asns%3Aus-east-1%3A123456789%3Aexample-message&
+	//		Version=2010-03-31&
+	//		Signature=NU%2FUNneSfY3qMk78Wetdp%2B7xGyM2uelG%2Bnsr17OEzSU%3D
 	params := map[string]string{
-		"Subject": "My first message",
-		"TopicArn": "arn:aws:sns:us-east-1:698519295917:My-Topic",
-		"Message": "Hello world%21",
-		"Action": "Publish",
-		"Timestamp": "2010-03-31T12:00:00.000Z",
-		"AWSAccessKeyId": "AKIAIOSFODNN7EXAMPLE",
-	};
-	AwsSign(creds, "GET", "sns.us-east-1.amazonaws.com", "/", params)
+		"Message":     "Hi Test",
+		"TopicArn":    "arn:aws:sns:us-east-1:123456789:example-message",
+		"Timestamp":   "2012-05-21T21:16:38Z",
+		"Version":     "2010-03-31",
+		"Action":      "Publish",
+		"ContentType": "JSON",
+	}
+	params = AwsSign("EXAMPLE+AWS+KEY", "EXAMPLE+AWS+SECRET", "GET", "sns.us-east-1.amazonaws.com", "/", params)
 
+	// verify it worked
 	if v, ok := params["SignatureVersion"]; !ok || "2" != v {
 		t.Fatalf("SignatureVersion expecting %s got %s", "2", v)
 	}
 	if v, ok := params["SignatureMethod"]; !ok || "HmacSHA256" != v {
 		t.Fatalf("SignatureMethod expecting %s got %s", "HmacSHA256", v)
 	}
-	signature := "jUkpstt7U+ENbD++Ou9usiKHh61dLFi4lVZTHqzO8as="
+	signature := "NU/UNneSfY3qMk78Wetdp+7xGyM2uelG+nsr17OEzSU="
 	if v, ok := params["Signature"]; !ok || signature != v {
 		t.Fatalf("Sigunature expecting %s got %s", signature, v)
 	}
