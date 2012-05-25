@@ -3,7 +3,7 @@ After installing go:
 http://code.google.com/p/go/downloads/list
 
 ```
-go get github.com/robert-wallis/go-awssign
+go get github.com/verbalink/go-awssign
 ```
 
 # Examples
@@ -12,7 +12,7 @@ go get github.com/robert-wallis/go-awssign
 ```go
 package main
 
-import "github.com/robert-wallis/go-awssign"
+import "github.com/verbalink/go-awssign"
 
 func main() {
 	var res *http.Response
