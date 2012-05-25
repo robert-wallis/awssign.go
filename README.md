@@ -1,3 +1,12 @@
+# Purpose
+Some AWS libraries try to do everything for each service,
+but Amazon is so diverse with many services, and they add and update
+their services constantly.
+
+We are developers, we can easily read the Amazon docs on what params to use.
+
+All I wanted is something to do the hard part, sign a request. (and maybe send it)
+
 # Installation
 After installing go:
 http://code.google.com/p/go/downloads/list
@@ -15,8 +24,6 @@ package main
 import "github.com/verbalink/go-awssign"
 
 func main() {
-	var res *http.Response
-	var err error
 	// this is a map of []strings because a key can have
 	// multiple params, and it's of the type url.Values
 	params := map[string][]string{
@@ -24,7 +31,7 @@ func main() {
 		"TopicArn": {"arn:aws:sns:us-east-1:1111111111111111111:prank-txt"},
 		"Action":   {"Publish"},
 	}
-	res, err := awssign.Request(
+    res, err := awssign.Request(
 		aws_key,
 		aws_secret,
 		"GET",
@@ -34,6 +41,7 @@ func main() {
 	)
 	// request sent!
 	// do whatever you want with res
+	// res is an *http.Response type
 }
 ```
 
