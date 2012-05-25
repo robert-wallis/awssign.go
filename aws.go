@@ -8,21 +8,78 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"io"
+	"net/http"
+	"net/url"
 	"sort"
 	"strings"
+	"time"
 )
 
 // aws_key = Your Amazon Web Services key.
 // aws_secret = Your Amazon Web Services secret used to create the signature.
-// http_verb = Usually GET, POST, PUT or DELETE.
+// http_method = HTTP "verb" usually GET, POST, PUT or DELETE.
 // host = Example: "sns.us-east-1.amazonaws.com" but depends on service.
 // uri = Maybe your bucket name or if you don't know use "/".
 // params = Whatever parameters are required by the service you're using.
 // 			If a param is used twice, separate by a "," with no space.
-// returns = A new map[string]string that has all the stuff from params with
-// 			some new values including "Signature".
-func AwsSign(aws_key, aws_secret, http_verb, host, uri string,
-	params map[string]string) map[string]string {
+// returns = An http.Response object to parse on your own
+func Request(aws_key, aws_secret, http_method, host, uri string, params url.Values) (*http.Response, error) {
+	awsSign := AwsSign{
+		AwsKey:     aws_key,
+		AwsSecret:  aws_secret,
+		HttpMethod: http_method,
+		Host:       host,
+		Uri:        uri,
+		Params:     params,
+	}
+	// make sure all the params are signed, and add any extra required params
+	awsSign.Sign()
+	// no matter what we all have the same base
+	baseURL := "https://" + host + uri
+	switch {
+	case "POST" == http_method || "PUT" == http_method:
+		return http.PostForm(baseURL, awsSign.Params)
+	case "GET" == http_method:
+		return http.Get(baseURL + "?" + awsSign.Params.Encode())
+	default:
+		client := &http.Client{}
+		req, err := http.NewRequest(http_method, baseURL+"?"+params.Encode(), nil)
+		if err != nil {
+			return nil, err
+		}
+		return client.Do(req)
+	}
+	// impossible
+	return nil, nil
+}
+
+// This is an object so you can more quickly overwrite
+// Params withp.Params having to pass them all around.
+type AwsSign struct {
+	AwsKey     string     // Your Amazon Web Services key.
+	AwsSecret  string     // Your Amazon Web Services secret used to create the signature.
+	HttpMethod string     // HTTP "verb" usually GET POST PUT or DELETE.
+	Host       string     // Example: "sns.us-east-1.amazonaws.com" but depends on service.
+	Uri        string     // Example: "/" for none, or "/bucket/object"
+	Params     url.Values // The parameters required by the AWS service you're using.
+	// If a param is used twice separate by a "" with no space.
+}
+
+// Signs your request by adding values to the 'params'
+// including "Signature".
+//
+// aws_key = Your Amazon Web Services key.
+// aws_secret = Your Amazon Web Services secret used to create the signature.
+// http_method = HTTP "verb" usually GET, POST, PUT or DELETE.
+// host = Example: "sns.us-east-1.amazonaws.com" but depends on service.
+// uri = Maybe your bucket name or if you don't know use "/".
+// params = Whatever parameters are required by the service you're using.
+// 			If a param is used twice, separate by a "," with no space.
+//
+// usage:
+//		signer := awssign.AwsSign{...}
+//		url := signer.Params.Encode()
+func (p *AwsSign) Sign() {
 	// Guide from Amazon:
 	// http://docs.amazonwebservices.com/AlexaTopSites/latest/index.html?CalculatingSignatures.html
 	// StringToSign = HTTPVerb + "\n" +
@@ -30,47 +87,52 @@ func AwsSign(aws_key, aws_secret, http_verb, host, uri string,
 	//                HTTPRequestURI + "\n" +
 	//                CanonicalizedQueryString <from the preceding step>
 	// Signature = Base64(SHA256(StringToSign))
-	// make a copy of params to make this 'functional' or non-destructive
-	out := make(map[string]string, len(params)+4)
-	for k, v := range params {
-		out[k] = v
-	}
+
 	// make sure the required params are added
-	out["SignatureVersion"] = "2"
-	out["SignatureMethod"] = "HmacSHA256"
-	out["AWSAccessKeyId"] = aws_key
+	p.Params.Set("SignatureVersion", "2")
+	p.Params.Set("SignatureMethod", "HmacSHA256")
+	p.Params.Set("AWSAccessKeyId", p.AwsKey)
+	if "" == p.Params.Get("Timestamp") {
+		p.Params.Set("Timestamp", time.Now().UTC().Format(time.RFC3339))
+	}
 
 	// make sure the params are sorted
-	sortedParamKeys := make([]string, len(out))
+	sortedParamKeys := make([]string, len(p.Params))
 	i := 0
-	for k, _ := range out {
+	for k, _ := range p.Params {
 		sortedParamKeys[i] = k
 		i++
 	}
 	sort.Strings(sortedParamKeys)
 
-	// build a query string out of the params
-	canonicalizedQueryArray := make([]string, len(out))
+	// build a query string p.Params of the params
+	canonicalizedQueryArray := make([]string, len(p.Params))
 	for i := 0; i < len(sortedParamKeys); i++ {
 		k := sortedParamKeys[i]
-		canonicalizedQueryArray[i] = k + "=" + escape(out[k])
+		// support multiple values, but don't encode the ,
+		vlist := make([]string, len(p.Params[k]))
+		for j := 0; j < len(p.Params[k]); j++ {
+			vlist[j] = escape(p.Params[k][j])
+		}
+		// group multiple values by a comma
+		vs := strings.Join(vlist, ",")
+		canonicalizedQueryArray[i] = k + "=" + vs
 	}
 	canonicalizedQueryString := strings.Join(canonicalizedQueryArray, "&")
 
 	// build the string that will be signed
-	stringToSign := http_verb + "\n" +
-		strings.ToLower(host) + "\n" +
-		uri + "\n" +
+	stringToSign := p.HttpMethod + "\n" +
+		strings.ToLower(p.Host) + "\n" +
+		p.Uri + "\n" +
 		canonicalizedQueryString
 
 	// sign it with the secret
-	sha := hmac.New(sha256.New, []byte(aws_secret))
+	sha := hmac.New(sha256.New, []byte(p.AwsSecret))
 	io.WriteString(sha, stringToSign)
 	signature := base64.StdEncoding.EncodeToString(sha.Sum(nil))
 
 	// save the signature back into the params
-	out["Signature"] = signature
-	return out
+	p.Params.Set("Signature", signature)
 }
 
 // modified from net.url because shouldEscape is
@@ -109,12 +171,12 @@ func escape(s string) string {
 // truncated from pkg net/url
 // according to RFC 3986
 func shouldEscape(c byte) bool {
+	switch {
 	// §2.3 Unreserved characters (alphanum)
-	if 'A' <= c && c <= 'Z' || 'a' <= c && c <= 'z' || '0' <= c && c <= '9' {
+	case 'A' <= c && c <= 'Z' || 'a' <= c && c <= 'z' || '0' <= c && c <= '9':
 		return false
-	}
-	switch c {
-	case '-', '_', '.', '~': // §2.3 Unreserved characters (mark)
+	// §2.3 Unreserved characters (mark)
+	case '-' == c, '_' == c, '.' == c, '~' == c:
 		return false
 	}
 	return true
