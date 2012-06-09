@@ -51,25 +51,3 @@ func main() {
 }
 ```
 
-## Example: if you wanted to do your own request
-```go
-params := url.Values{
-	"Message":  {"Is your refrigerator running?"},
-	"TopicArn": {"arn:aws:sns:us-east-1:1111111111111111111:prank-txt"},
-	"Action":   {"Publish"},
-}
-a := awssign.AwsSign{
-	aws_key,
-	aws_secret,
-	"GET",
-	"sns.us-east-1.amazonaws.com",
-	"/",
-	params,
-}
-// do the actual sign
-a.Sign()
-
-// do whatever you want with params, they are setup to be used
-fmt.Println(params.Encode())
-```
-
