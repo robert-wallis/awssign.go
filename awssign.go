@@ -19,4 +19,3 @@ type AwsSign struct {
 	Params     url.Values // The parameters required by the AWS service you're using.
 	// If a param is used twice separate by a "" with no space.
 }
-

@@ -5,10 +5,10 @@
 package awssign
 
 import (
-    "crypto/hmac"
-    "crypto/sha256"
-    "encoding/base64"
-    "io"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/base64"
+	"io"
 	"net/http"
 	"net/url"
 	"sort"
