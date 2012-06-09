@@ -1,3 +1,9 @@
+# Beta Notice
+This currently only works with SNS, I assumed incorrectly that
+Amazon has a unified signature format across all services.
+### TODO:
+* Try signing all services via Headers instead of Query string.
+
 # Purpose
 Some AWS libraries try to do everything for each service,
 but Amazon is so diverse with many services, and they add and update
