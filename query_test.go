@@ -27,7 +27,7 @@ var sns_host = "sns.us-east-1.amazonaws.com"
 var test_host = "my.verbalink.com"
 var test_url = "/awssign.go/test"
 
-func TestSign(t *testing.T) {
+func TestSignQuery(t *testing.T) {
 	// secret: EXAMPLE+AWS+SECRET
 	// http://sns.us-east-1.amazonaws.com/?
 	// 		AWSAccessKeyId=EXAMPLE%2BAWS%2BKEY&
@@ -58,7 +58,7 @@ func TestSign(t *testing.T) {
 		params,
 	}
 	// do the actual sign
-	a.Sign()
+	a.SignQuery()
 
 	// verify it worked
 	if v, ok := a.Params["SignatureVersion"]; !ok || "2" != v[0] {
@@ -70,7 +70,6 @@ func TestSign(t *testing.T) {
 	if v, ok := a.Params["Signature"]; !ok || signature != v[0] {
 		t.Errorf("Sigunature expecting \"%s\" received \"%s\"", signature, v[0])
 	}
-	t.Log("Sign() Success")
 }
 
 type testRequest struct {
@@ -79,7 +78,7 @@ type testRequest struct {
 }
 
 
-func TestRequest(t *testing.T) {
+func TestQueryRequest(t *testing.T) {
 	// each different method changes the signature
 	methods := []testRequest{
 		{"GET", "2RFMXrQACR5ceZOJtMxfu18+4pmNGniMfS/KqNLZuqU="},
@@ -96,7 +95,7 @@ func TestRequest(t *testing.T) {
 			"Version":   {"2010-03-31"},
 			"Action":    {"Publish"},
 		}
-		res, err := Request(
+		res, err := QueryRequest(
 			aws_key,
 			aws_secret,
 			method.Method,
